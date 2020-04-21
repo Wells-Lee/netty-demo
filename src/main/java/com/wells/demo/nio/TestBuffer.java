@@ -25,8 +25,8 @@ import java.nio.ByteBuffer;
 public class TestBuffer {
     public static void main(String[] args) {
         TestBuffer testBuffer = new TestBuffer();
-//        testBuffer.testByteBuffer();
-        testBuffer.testMark();
+        testBuffer.testByteBuffer();
+//        testBuffer.testMark();
     }
 
     public void testMark(){
