@@ -97,6 +97,8 @@ public class TestChannel {
 
     /**
      * @desc 分散读取和聚集写入
+     * 分散读取(Scattering Reads)是指从 Channel 中读取的数据“分 散”到多个 Buffer 中。
+     * 聚集写入(Gathering Writes)是指将多个 Buffer 中的数据“聚集” 到 Channel。
      * @method testScterAndGather
      * @param
      * @return void
