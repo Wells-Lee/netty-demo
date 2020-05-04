@@ -18,6 +18,12 @@ public class TestNonBlockingClient {
         // 2、切换成非阻塞模式
         socketChannel.configureBlocking(false);
 
+        if (!socketChannel.isConnected()) {
+            while(!socketChannel.finishConnect()){
+                System.out.println("因为连接需要时间, 客户端不会阻塞, 可以做其他事情");
+            }
+        }
+
         // 2、分配指定大小的缓冲区
         ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
 

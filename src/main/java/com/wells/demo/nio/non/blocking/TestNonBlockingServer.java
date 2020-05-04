@@ -8,6 +8,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Iterator;
+import java.util.Set;
 
 /**
  * Description 
@@ -15,7 +16,7 @@ import java.util.Iterator;
  */
 
 public class TestNonBlockingServer {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         // 1、获取服务端通道
         ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
 
@@ -32,9 +33,15 @@ public class TestNonBlockingServer {
         serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
 
         // 6、轮询式获取选择器上已经准备就绪的事件
-        while (selector.select() > 0) {
+        while (true) {
+            if (selector.select(1000) == 0) {
+                System.out.println("no connect after server waited 1 second");
+                continue;
+            }
+
             // 7、获取当前选择器所有的监听键
-            Iterator<SelectionKey> iterator = selector.keys().iterator();
+            Set<SelectionKey> selectionKeys = selector.selectedKeys();
+            Iterator<SelectionKey> iterator = selectionKeys.iterator();
             while (iterator.hasNext()) {
                 SelectionKey key = iterator.next();
 
@@ -46,9 +53,12 @@ public class TestNonBlockingServer {
                     // 10、切换为非阻塞模式
                     socketChannel.configureBlocking(false);
 
+                    System.out.println("client connect success, sockerChannel " + socketChannel.hashCode());
+
                     // 11、将该通道注册到选择器上，并且制定 "选择器监听事件"
                     socketChannel.register(selector, SelectionKey.OP_READ);
-                } else if (key.isReadable()) {
+                }
+                if (key.isReadable()) {
                     // 12、如果为 read 事件，那么处理读过来的内容
                     SocketChannel socketChannel = (SocketChannel) key.channel();
 
@@ -57,12 +67,12 @@ public class TestNonBlockingServer {
                     int len = 0;
                     while ((len = socketChannel.read(byteBuffer)) != -1) {
                         byteBuffer.flip();
-                        System.out.println(new String(byteBuffer.array(), 0, len));
+                        System.out.println("from client " + new String(byteBuffer.array(), 0, len));
                         byteBuffer.clear();
                     }
                 }
                 // 13、监听处理一个选择器key，需要移除一个
-//                iterator.remove();
+                iterator.remove();
             }
         }
     }
