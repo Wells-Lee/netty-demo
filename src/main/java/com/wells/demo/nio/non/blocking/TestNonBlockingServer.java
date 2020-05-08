@@ -40,6 +40,8 @@ public class TestNonBlockingServer {
             }
 
             // 7、获取当前选择器所有的监听键
+            // selector.selectedKeys(): 表示监听的时候有哪些通道发生了事件, 即同一时间内的发生事件的通道
+            // selector.keys(): 表示总共注册了多少通道
             Set<SelectionKey> selectionKeys = selector.selectedKeys();
             Iterator<SelectionKey> iterator = selectionKeys.iterator();
             while (iterator.hasNext()) {
