@@ -7,10 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CharsetEncoder;
+import java.nio.charset.*;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.SortedMap;
@@ -38,7 +35,7 @@ import java.util.SortedMap;
  *  3、在 JDK1.7 中 NIO.2 的 Files 工具类的 newByteChannel()
  *  直接缓冲区复制比非直接缓冲区快得多的多
  *
- *  四、通道之间的数据传输
+ *  四、通道之间的数据传输，直接缓冲区，速度比较快
  *      transferTo
  *      transferFrom
  *  五、分散与聚集
@@ -76,7 +73,7 @@ public class TestChannel {
         SortedMap<String, Charset> map = Charset.availableCharsets();
         map.forEach((k, v) -> System.out.println(k + "-" + v));
 
-        Charset charset = Charset.forName("UTF-8");
+        Charset charset = StandardCharsets.UTF_8;
 
         // 2、获取编码器
         CharsetEncoder charsetEncoder = charset.newEncoder();
