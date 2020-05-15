@@ -7,7 +7,10 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.*;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.SortedMap;
@@ -33,30 +36,42 @@ import java.util.SortedMap;
  *          DatagramSocket
  *  2、在 JDK1.7 中 NIO.2 针对各个通道提供了静态方法 open()
  *  3、在 JDK1.7 中 NIO.2 的 Files 工具类的 newByteChannel()
- *  直接缓冲区复制比非直接缓冲区快得多的多
  *
- *  四、通道之间的数据传输，直接缓冲区，速度比较快
+ *  四、直接缓冲区与非直接缓冲区
+ *      ByteBuffer.allocate: 非直接缓冲区，将缓冲区建立在 JVM 的内存中
+ *      ByteBuffer.allocateDirect: 直接缓冲区，将缓冲区建立在物理内存中。可以提高效率
+ *      直接缓冲区复制比非直接缓冲区快得多的多，因为使用的是物理机内存
+ *
+ *  五、使用内存映射文件
+ *      MappedByteBuffer
+ *
+ *  六、通道之间的数据传输使用直接缓冲区，速度比较快
  *      transferTo
  *      transferFrom
- *  五、分散与聚集
+ *
+ *  七、分散与聚集
  *      分散读取(Scattering Reads): 将通道中的数据分散到多个缓冲区
  *      聚集写入(Gathering Writes): 将多个缓冲区的数据写入到通道
  *
- *  六、字符集: CharSet
+ *  八、字符集: CharSet
  *      编码: 字符串 -> 字节数组
  *      解码: 字节数组 -> 字符串
  *
+ *
+ * 通过测试发现copy文件耗时: transferTo/transferFrom < MappedByteBuffer < allocateDirect(每次1024,多次复制) < allocate(每次1024,多次复制)
+ * 通过测试发现copy文件耗时: transferTo/transferFrom ≈ allocateDirect(一次性申请文件大小的内存) < MappedByteBuffer < allocate(一次性申请文件大小的内存)
  * Created by wells on 2020-04-20 06:35:01
  */
 
 public class TestChannel {
     public static void main(String[] args) throws Exception {
         TestChannel testChannel = new TestChannel();
-//        testChannel.testAllocate();
-//        testChannel.testDirectAllocate();
-//        testChannel.testChannelOperationData();
+        testChannel.testAllocate();
+        testChannel.testAllocateDirect();
+        testChannel.testDirectAllocateByMap();
+        testChannel.testChannelOperationData();
 //        testChannel.testScterAndGather();
-        testChannel.testCharset();
+//        testChannel.testCharset();
 
     }
 
@@ -133,12 +148,15 @@ public class TestChannel {
      * @author wells
      */
     public void testChannelOperationData() throws IOException {
-        FileChannel inChannel = FileChannel.open(Paths.get("/Users/wells/Pictures/1.png"), StandardOpenOption.READ);
-        FileChannel outChannel = FileChannel.open(Paths.get("/Users/wells/Pictures/4.png"), StandardOpenOption.WRITE,
+        FileChannel inChannel = FileChannel.open(Paths.get("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz"), StandardOpenOption.READ);
+        FileChannel outChannel = FileChannel.open(Paths.get("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz-4"), StandardOpenOption.WRITE,
                 StandardOpenOption.READ, StandardOpenOption.CREATE);
 
+        long start = System.currentTimeMillis();
         inChannel.transferTo(0, inChannel.size(), outChannel);
 //        outChannel.transferFrom(inChannel, 0, inChannel.size());
+        long end = System.currentTimeMillis();
+        System.out.println("transferTo cost time:" + (end - start));
 
         inChannel.close();
         outChannel.close();
@@ -152,21 +170,57 @@ public class TestChannel {
      * @date 2020-04-20 07:00:42
      * @author wells
      */
-    public void testDirectAllocate() throws IOException {
-        FileChannel inChannel = FileChannel.open(Paths.get("/Users/wells/Pictures/1.png"), StandardOpenOption.READ);
-        FileChannel outChannel = FileChannel.open(Paths.get("/Users/wells/Pictures/4.png"), StandardOpenOption.WRITE, StandardOpenOption.READ, StandardOpenOption.CREATE_NEW);
+    public void testDirectAllocateByMap() throws IOException {
+        FileChannel inChannel = FileChannel.open(Paths.get("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz"), StandardOpenOption.READ);
+        FileChannel outChannel = FileChannel.open(Paths.get("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz-3"), StandardOpenOption.WRITE, StandardOpenOption.READ, StandardOpenOption.CREATE_NEW);
 
         // 内存映射文件
         MappedByteBuffer inMappedBuf = inChannel.map(FileChannel.MapMode.READ_ONLY, 0, inChannel.size());
         MappedByteBuffer outMappedBuf = outChannel.map(FileChannel.MapMode.READ_WRITE, 0, inChannel.size());
 
+        long start = System.currentTimeMillis();
         // 直接对缓冲区的数据进行读写
         byte[] dst = new byte[inMappedBuf.capacity()];
         inMappedBuf.get(dst);
         outMappedBuf.put(dst);
 
+        long end = System.currentTimeMillis();
+        System.out.println("test direct allocate by map cost time:" + (end - start));
+
         inChannel.close();
         outChannel.close();
+    }
+
+    /**
+     * @desc 使用 Buffer 的allocateDirect
+     * @method testAllocateDirect
+     * @param
+     * @return void
+     * @date 2020-05-14 13:51:34
+     * @author wells
+     */
+    public void testAllocateDirect() throws Exception {
+        FileInputStream fis = new FileInputStream("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz");
+        FileOutputStream fos = new FileOutputStream("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz-2");
+
+        // 1、创建通道
+        FileChannel inChannel = fis.getChannel();
+        FileChannel outChannel = fos.getChannel();
+
+        ByteBuffer byteBuffer = ByteBuffer.allocateDirect((int) inChannel.size());
+        long start = System.currentTimeMillis();
+        while (inChannel.read(byteBuffer) != -1) {
+            byteBuffer.flip();
+            outChannel.write(byteBuffer);
+            byteBuffer.clear();
+        }
+        long end = System.currentTimeMillis();
+        System.out.println("allocate direct cost time:" + (end - start));
+
+        outChannel.close();
+        inChannel.close();
+        fos.close();
+        fis.close();
     }
 
     /**
@@ -178,15 +232,17 @@ public class TestChannel {
      * @author wells
      */
     public void testAllocate() throws Exception {
-        FileInputStream fis = new FileInputStream("/Users/wells/Pictures/1.png");
-        FileOutputStream fos = new FileOutputStream("/Users/wells/Pictures/3.png");
+        FileInputStream fis = new FileInputStream("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz");
+        FileOutputStream fos = new FileOutputStream("/Users/wells/Downloads/flink-1.10.0-bin-scala_2.11.tgz-1");
 
         // 1、创建通道
         FileChannel inChannel = fis.getChannel();
         FileChannel outChannel = fos.getChannel();
 
+        long start = System.currentTimeMillis();
+
         // 2、分配指定大小的缓冲区
-        ByteBuffer dst = ByteBuffer.allocate(1024);
+        ByteBuffer dst = ByteBuffer.allocate((int) inChannel.size());
         while (inChannel.read(dst) != -1) {
             // 3、切换读数据模式
             dst.flip();
@@ -197,6 +253,9 @@ public class TestChannel {
             // 5、清空缓冲区
             dst.clear();
         }
+
+        long end = System.currentTimeMillis();
+        System.out.println("allocate cost time:" + (end - start));
 
         outChannel.close();
         inChannel.close();
