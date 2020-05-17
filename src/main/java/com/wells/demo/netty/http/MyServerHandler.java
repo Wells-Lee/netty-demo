@@ -17,7 +17,7 @@ public class MyServerHandler extends SimpleChannelInboundHandler<HttpObject> {
     protected void channelRead0(ChannelHandlerContext ctx, HttpObject msg) throws Exception {
         // 判断msg是不是http请求
         if (msg instanceof HttpRequest) {
-            System.out.println("pipline:" + ctx.pipeline().hashCode());
+            System.out.println("workGroup pipline addr:" + ctx.pipeline().hashCode());
             System.out.println("msg class:" + msg.getClass());
             System.out.println("client addr:" + ctx.channel().remoteAddress());
 

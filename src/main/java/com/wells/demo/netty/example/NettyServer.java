@@ -27,7 +27,7 @@ public class NettyServer {
             // 创建服务端启动对象，配置参数
             ServerBootstrap serverBootstrap = new ServerBootstrap();
 
-            // 设置线程组
+            // 设置线程组: child开头的方法针对 workGroup，非child开头的方法针对 bossGroup
             serverBootstrap.group(bossGroup, workGroup)
                     // 使用 NioServerSocketChannel 作为服务器的通道实现
                     .channel(NioServerSocketChannel.class)
@@ -35,6 +35,7 @@ public class NettyServer {
                     .option(ChannelOption.SO_BACKLOG, 128)
                     // 设置保持活动连接状态
                     .childOption(ChannelOption.SO_KEEPALIVE, true)
+                    // 这里的 SocketChannel 也可以是 NioSocketChannel，因为client使用的是 NioSocketChannel；这两个类是继承关系
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {

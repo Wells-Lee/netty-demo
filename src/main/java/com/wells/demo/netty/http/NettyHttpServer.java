@@ -2,6 +2,7 @@ package com.wells.demo.netty.http;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -20,10 +21,15 @@ public class NettyHttpServer {
             ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(bossGroup, workGroup)
                     .channel(NioServerSocketChannel.class)
+                    .handler(new ChannelInitializer<NioServerSocketChannel>() {
+                        @Override
+                        protected void initChannel(NioServerSocketChannel ch) throws Exception {
+                            System.out.println("bossGroup pipeline addr:" + ch.pipeline().hashCode());
+                        }
+                    })
                     .childHandler(new NettyHttpInitializerHandler());
 
             ChannelFuture channelFuture = serverBootstrap.bind(9999);
-
 
             channelFuture.channel().closeFuture().sync();
         } catch (InterruptedException e) {
