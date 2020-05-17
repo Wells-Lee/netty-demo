@@ -15,13 +15,6 @@ public class MyClientHandler extends SimpleChannelInboundHandler<String> {
         System.out.println(msg);
     }
 
-
-
-//    @Override
-//    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-//        System.out.println("响应来了" + msg);
-//    }
-
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
